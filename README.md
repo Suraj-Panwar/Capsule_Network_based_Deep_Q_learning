@@ -6,5 +6,9 @@ Among other benefits, capsnets address the "Picasso problem" in image recognitio
 1. https://medium.com/ai%C2%B3-theory-practice-business/understanding-hintons-capsule-networks-part-i-intuition-b4b559d1159b
 2. https://towardsdatascience.com/a-simple-and-intuitive-explanation-of-hintons-capsule-networks-b59792ad46b1
 3. https://www.youtube.com/watch?v=rTawFwUvnLE  --Geoffrey Hinton talk on Capsule Neural Network
+
+# Dynamic Routing
+1. https://arxiv.org/abs/1710.09829
+
 # Deep Q-Learning
 Deep Q Learning is a branch of Reinforcement Learning that deals with problems using CNN as function approximator, we have implemented Deep Q-Learning for Pong game based application where we have trained the network to play againt a AI opponent. The codes for execution of the alogirthm for both Single Machine as well as distributed implementation for various model configurations has been uploaded on this repository, which is using PYGAME for creating the environment for execution.
