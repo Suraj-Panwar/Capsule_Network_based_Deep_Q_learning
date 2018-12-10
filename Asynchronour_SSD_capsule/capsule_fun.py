@@ -2,8 +2,7 @@ import tensorflow as tf
 import numpy as np
 epsilon = 1e-9
 iter_routing = 2
-ACTIONS = 6 # number of valid actions
-
+ACTIONS = 6 
 def createNetwork():
     # input layer
     s= tf.placeholder("float", [None, 84, 84, 4])
@@ -29,18 +28,14 @@ def createNetwork():
     vector_j = tf.reshape(caps2, shape=(-1, 160))
     fc1 = tf.contrib.layers.fully_connected(vector_j, num_outputs=30, activation_fn=tf.nn.relu)
     q_eval = tf.contrib.layers.fully_connected(fc1, num_outputs=ACTIONS, activation_fn=None)
-    #output = tf.nn.softmax(logits = fc2)
-    #argmax_idx = tf.to_int32(tf.argmax(output, axis=1))
     readout = q_eval
     return s, coeff, readout
-
 
 def squash(vector):
     vec_squared_norm = reduce_sum(tf.square(vector), -2, keepdims=True)
     scalar_factor = vec_squared_norm / (1 + vec_squared_norm) / tf.sqrt(vec_squared_norm + epsilon)
     vec_squashed = scalar_factor * vector  # element-wise
     return(vec_squashed)
-    
     
 def routing(input, b_IJ):
     # W: [1, num_caps_i, num_caps_j * len_v_j, len_u_j, 1]
@@ -94,19 +89,10 @@ def routing(input, b_IJ):
 
                 # b_IJ += tf.reduce_sum(u_produce_v, axis=0, keep_dims=True)
                 b_IJ += u_produce_v
-
     return(v_J)
     
-# For version compatibility
 def reduce_sum(input_tensor, axis=None, keepdims=False):
-    try:
-        return tf.reduce_sum(input_tensor, axis=axis, keepdims=keepdims)
-    except:
-        return tf.reduce_sum(input_tensor, axis=axis, keep_dims=keepdims)
-    
-# For version compatibility
+    return tf.reduce_sum(input_tensor, axis=axis, keepdims=keepdims)
+   
 def softmax(logits, axis=None):
-    try:
-        return tf.nn.softmax(logits, axis=axis)
-    except:
-        return tf.nn.softmax(logits, dim=axis)
+    return tf.nn.softmax(logits, axis=axis)
