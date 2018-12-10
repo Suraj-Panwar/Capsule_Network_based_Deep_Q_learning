@@ -8,6 +8,9 @@ Among other benefits, capsnets address the "Picasso problem" in image recognitio
 3. https://www.youtube.com/watch?v=rTawFwUvnLE  --Geoffrey Hinton talk on Capsule Neural Network
 
 # Dynamic Routing
+The fact that the output of a capsule is a vector makes it possible to use a powerful dynamic routing
+mechanism to ensure that the output of the capsule gets sent to an appropriate parent in the layer
+above.
 1. https://arxiv.org/abs/1710.09829
 
 # Deep Q-Learning
