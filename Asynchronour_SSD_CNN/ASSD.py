@@ -93,7 +93,6 @@ def main(_):
             
             print('Step 2 Done')
             while True:
-                # choose an action epsilon greedily
                 #print('Checkpoint 3 reached')
                 readout_t = readout.eval(feed_dict = {s : [s_t]}, session=mon_sess)[0]
                 a_t = np.zeros([actions])
@@ -110,7 +109,6 @@ def main(_):
                         epsilon -= (INITIAL_EPSILON - FINAL_EPSILON) / EXPLORE
 
                 for i in range(0, K):
-                        # run the selected action and observe next state and reward
                         x_t1_col, r_t, terminal, bar1_score, bar2_score  = game_state.frame_step(a_t)
                         if(terminal == 1):
                             episode +=1
@@ -123,12 +121,9 @@ def main(_):
                         D.append((s_t, a_t, r_t, s_t1, terminal))
                         if len(D) > REPLAY_MEMORY:
                             D.popleft()
-                # only train if done observing
                 if t > OBSERVE:
-                    # sample a minibatch to train on
                     minibatch = random.sample(D, BATCH)
 
-                    # get the batch variables
                     s_j_batch = [d[0] for d in minibatch]
                     a_batch = [d[1] for d in minibatch]
                     r_batch = [d[2] for d in minibatch]
@@ -137,7 +132,6 @@ def main(_):
                     y_batch = []
                     readout_j1_batch = readout.eval(feed_dict = {s : s_j1_batch}, session=mon_sess)
                     for i in range(0, len(minibatch)):
-                        # if terminal only equals reward
                         if minibatch[i][4]:
                             y_batch.append(r_batch[i])
                         else:
@@ -154,7 +148,6 @@ def main(_):
                         dct["bar2_score"] = bar2_score
                         result  = pd.DataFrame(dct)
                         result.to_csv("/home/dolaram/Syn_CNN/list_asyn_2.csv")
-                # update the old values
                 s_t = s_t1
                 t += 1
                 if r_t!= 0:
