@@ -17,16 +17,16 @@ epsilon = 1e-9
 iter_routing = 2
 train_freq = 20
 
-GAME = 'pong' # the name of the game being played for log files
-ACTIONS = 6 # number of valid actions
-GAMMA = 0.99 # decay rate of past observations
-OBSERVE = 1000. # timesteps to observe before training
-EXPLORE = 5000. # frames over which to anneal epsilon
-FINAL_EPSILON = 0.05 # final value of epsilon
-INITIAL_EPSILON = 1.0 # starting value of epsilon
-REPLAY_MEMORY = 25000 # number of previous transitions to remember
-BATCH = 32 # size of minibatch
-K = 1 # only select an action every Kth frame, repeat prev for others
+GAME = 'pong'
+ACTIONS = 6
+GAMMA = 0.99
+OBSERVE = 1000.
+EXPLORE = 5000.
+FINAL_EPSILON = 0.05
+INITIAL_EPSILON = 1.0
+REPLAY_MEMORY = 25000
+BATCH = 32
+K = 1
 
 #####################################################################################################
 
@@ -67,7 +67,6 @@ def main(_):
         game_state = game.GameState()
         D =  deque()
         
-        # get the first state by doing nothing and preprocess the image to 80x80x4
         do_nothing = np.zeros(ACTIONS)
         do_nothing[0] = 1
         x_t, r_0, terminal, bar1_score, bar2_score = game_state.frame_step(do_nothing)
@@ -100,7 +99,6 @@ def main(_):
             
             print('Step 2 Done')
             while True:
-                # choose an action epsilon greedily
                 readout_t = readout.eval(feed_dict = {s:s_t.reshape((1,84,84,4)), coeff:b_IJ1}, session=mon_sess)
                 #readout_t = readout.eval(feed_dict = {s : [s_t]}, session=mon_sess)[0]
                 a_t = np.zeros([ACTIONS])
@@ -117,7 +115,6 @@ def main(_):
                     epsilon -= (INITIAL_EPSILON - FINAL_EPSILON) / EXPLORE
                 
                 for i in range(0, K):
-                    # run the selected action and observe next state and reward
                     x_t1_col, r_t, terminal, bar1_score, bar2_score = game_state.frame_step(a_t)
                     if(terminal == 1):
                         episode +=1
@@ -130,13 +127,10 @@ def main(_):
                     if len(D) > REPLAY_MEMORY:
                         D.popleft()
 
-                    # store the transition in D
                     D.append((s_t, a_t, r_t, s_t1, terminal))
                     if len(D) > REPLAY_MEMORY:
                         D.popleft()
-                # only train if done observing
                 if t > OBSERVE and t%train_freq==0:
-                    # sample a minibatch to train on
                     minibatch = random.sample(D, BATCH)
                     # get the batch variables
                     s_j_batch = [d[0] for d in minibatch]
@@ -146,25 +140,21 @@ def main(_):
                     y_batch = []
                     readout_j1_batch = readout.eval(feed_dict = {s:s_j1_batch, coeff:b_IJ2 }, session=mon_sess)
                     for i in range(0, len(minibatch)):
-                        # if terminal only equals reward
                         if minibatch[i][4]:
                             y_batch.append(r_batch[i])
                         else:
                             y_batch.append(r_batch[i] + GAMMA * np.max(readout_j1_batch[i]))
                     
-                    # perform gradient step
                     train_op.run(feed_dict = {
                         y : y_batch,
                         a : a_batch,
                         s : s_j_batch,
                         coeff: b_IJ2}, session=mon_sess)
-                # update the old values
                 s_t = s_t1
                 t += 1
         
-                # print info
                 if r_t!= 0:
-                    print ("TIMESTEP", t, "/ EPISODE", episode, "/ bar1_score", bar1_score, "/ bar2_score", bar2_score, "/ REWARD", r_t, "/ Q_MAX %e" % np.max(readout_t))
+                    print ("Timestep", t,"/ Score", bar1_score)
         
                 if( (bar1_score - bar2_score) > 13): 
                     print("Game_Ends_in Time:",int(time.time() - tick))
