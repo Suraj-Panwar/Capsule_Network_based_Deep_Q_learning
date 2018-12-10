@@ -41,8 +41,6 @@ def main(_):
 #####################################################################################################
         print('Checkpoint 1 reached:-Build model')
         s, coeff, readout = createNetwork()
-        # trainNetwork(s, coeff, readout, sess)
-        # define the cost function
         a = tf.placeholder("float", [None, actions])
         y = tf.placeholder("float", [None])
         readout_action = tf.reduce_sum(tf.multiply(readout, a), reduction_indices = 1)
@@ -59,7 +57,6 @@ def main(_):
         game_state = game.GameState()
         D =  deque()
         
-        # get the first state by doing nothing and preprocess the image to 80x80x4
         do_nothing = np.zeros(actions)
         do_nothing[0] = 1
         x_t, r_0, terminal, bar1_score, bar2_score = game_state.frame_step(do_nothing)
@@ -98,9 +95,7 @@ def main(_):
             replay_memory = 25000 
             gamma = 0.99
             while True:
-                # choose an action epsilon greedily
                 readout_t = readout.eval(feed_dict = {s:s_t.reshape((1,84,84,4)), coeff:b_IJ1}, session=mon_sess)
-                #readout_t = readout.eval(feed_dict = {s : [s_t]}, session=mon_sess)[0]
                 a_t = np.zeros([actions])
                 action_index = 0
                 
@@ -110,12 +105,10 @@ def main(_):
                 else:
                     action_index = np.argmax(readout_t)
                     a_t[action_index] = 1
-                # scale down epsilon
                 if epsilon > FINAL_EPSILON and t > OBSERVE:
                     epsilon -= (INITIAL_EPSILON - FINAL_EPSILON) / EXPLORE
                 K = 1 
                 for i in range(0, K):
-                    # run the selected action and observe next state and reward
                     x_t1_col, r_t, terminal, bar1_score, bar2_score = game_state.frame_step(a_t)
                     if(terminal == 1):
                         episode +=1
@@ -128,15 +121,11 @@ def main(_):
                     if len(D) > replay_memory:
                         D.popleft()
 
-                    # store the transition in D
                     D.append((s_t, a_t, r_t, s_t1, terminal))
                     if len(D) > replay_memory:
                         D.popleft()
-                # only train if done observing
                 if t > OBSERVE and t%train_freq==0:
-                    # sample a minibatch to train on
                     minibatch = random.sample(D, BATCH)
-                    # get the batch variables
                     s_j_batch = [d[0] for d in minibatch]
                     a_batch = [d[1] for d in minibatch]
                     r_batch = [d[2] for d in minibatch]
@@ -144,13 +133,11 @@ def main(_):
                     y_batch = []
                     readout_j1_batch = readout.eval(feed_dict = {s:s_j1_batch, coeff:b_IJ2 }, session=mon_sess)
                     for i in range(0, len(minibatch)):
-                        # if terminal only equals reward
                         if minibatch[i][4]:
                             y_batch.append(r_batch[i])
                         else:
                             y_batch.append(r_batch[i] + gamma * np.max(readout_j1_batch[i]))
                     
-                    # perform gradient step
                     _,loss = mon_sess.run([train_op,cost],feed_dict = {
                             y : y_batch,
                             a : a_batch,
@@ -163,13 +150,11 @@ def main(_):
                         s : s_j_batch,
                         coeff: b_IJ2}, session=mon_sess)'''
     
-                # update the old values
                 s_t = s_t1
                 t += 1
         
-                # print info
                 if r_t!= 0:
-                    print ("TIMESTEP", t, "/ EPISODE", episode, "/ bar1_score", bar1_score, "/ bar2_score", bar2_score, "/ Loss", loss, "/ Q_MAX %e" % np.max(readout_t))
+                    print ("Timestep", t," Score", bar1_score)
         
                 if( (bar1_score - bar2_score) > 13): 
                     print("Game_Ends_in Time:",int(time.time() - tick))
