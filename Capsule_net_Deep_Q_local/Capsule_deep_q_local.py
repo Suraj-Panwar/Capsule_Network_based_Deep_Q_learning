@@ -145,9 +145,7 @@ def trainNetwork(s, coeff, readout, sess):
     episode = 0
     OBSERVE = 1000
     EXPLORE = 5000
-    while "pigs" != "fly":
-        # choose an action epsilon greedily
-        # readout_t = readout.eval(feed_dict = {s : [s_t].reshape((1,80,80,4))})[0]
+    while True:
         
         readout_t = readout.eval(feed_dict = {s:s_t.reshape((1,84,84,4)), coeff:b_IJ1})
         
@@ -160,12 +158,10 @@ def trainNetwork(s, coeff, readout, sess):
             action_index = np.argmax(readout_t)
             a_t[action_index] = 1
 
-        # scale down epsilon
         if epsilon > FINAL_EPSILON and t > OBSERVE:
             epsilon -= (INITIAL_EPSILON - FINAL_EPSILON) / EXPLORE
         K = 1 
         for i in range(0, K):
-            # run the selected action and observe next state and reward
             x_t1_col, r_t, terminal, bar1_score, bar2_score = game_state.frame_step(a_t)
             if(terminal == 1):
                 episode +=1
@@ -174,17 +170,14 @@ def trainNetwork(s, coeff, readout, sess):
             x_t1 = np.reshape(x_t1, (84, 84, 1))
             s_t1 = np.append(x_t1, s_t[:,:,0:3], axis = 2)
 
-            # store the transition in D
             D.append((s_t, a_t, r_t, s_t1, terminal))
             if len(D) > REPLAY_MEMORY:
                 D.popleft()
         
-        # only train if done observing
         if t > OBSERVE and t%train_freq==0:
             # sample a minibatch to train on
             minibatch = random.sample(D, BATCH)
 
-            # get the batch variables
             s_j_batch = [d[0] for d in minibatch]
             a_batch = [d[1] for d in minibatch]
             r_batch = [d[2] for d in minibatch]
@@ -192,30 +185,23 @@ def trainNetwork(s, coeff, readout, sess):
 
             y_batch = []
             readout_j1_batch = readout.eval(feed_dict = {s:s_j1_batch, coeff:b_IJ2 })
-            #readout_j1_batch = readout.eval(feed_dict = {s : s_j1_batch})
             for i in range(0, len(minibatch)):
-                # if terminal only equals reward
                 if minibatch[i][4]:
                     y_batch.append(r_batch[i])
                 else:
                     y_batch.append(r_batch[i] + gamma * np.max(readout_j1_batch[i]))
 
-            # perform gradient step
             train_step.run(feed_dict = {
                 y : y_batch,
                 a : a_batch,
                 s : s_j_batch,
                 coeff: b_IJ2})
 
-        # update the old values
         s_t = s_t1
         t += 1
 
-        # save progress every 10000 iterations
-        if t % 10000 == 0:
-            saver.save(sess, 'saved_networks/' + GAME + '-dqn', global_step = t)
         if r_t!= 0:
-            print ("TIMESTEP", t, "/ EPISODE", episode, "/ bar1_score", bar1_score, "/ bar2_score", bar2_score, "/ REWARD", r_t, "/ Q_MAX %e" % np.max(readout_t))
+            print ("Timestep", t"/ Score", bar1_score)
 
         if(bar1_score - bar2_score > 17): 
             print("Game_Ends_in Time:",int(time.time() - tick))
