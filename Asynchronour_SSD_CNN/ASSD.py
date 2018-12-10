@@ -151,7 +151,7 @@ def main(_):
                 s_t = s_t1
                 t += 1
                 if r_t!= 0:
-                        print ("TIMESTEP", t, "/episode",episode, "/bar1_score", bar1_score, "/bar2_score", bar2_score, "/ loss", loss, "/ Q_MAX %e" % np.max(readout_t))
+                        print ("Timestep", t, " Score", bar1_score)
                 if((bar1_score - bar2_score) > 16 ):
                     print("GAME_ENDS_in_Time",int(time.time() -tick))
                     break;
