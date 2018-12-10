@@ -9,12 +9,11 @@ import time
 import numpy as np
 from collections import deque
 epsilon = 1e-9
-ACTIONS = 6 
-K = 1 
+actions = 6 
 iter_routing = 3
 train_freq = 20
-BATCH = 32 
-GAMMA = 0.99 
+batch = 32 
+gamma = 0.99 
 def squash(vector):
     vec_squared_norm = reduce_sum(tf.square(vector), -2, keepdims=True)
     scalar_factor = vec_squared_norm / (1 + vec_squared_norm) / tf.sqrt(vec_squared_norm + epsilon)
@@ -76,15 +75,12 @@ def routing(input, b_IJ):
                 # b_IJ += tf.reduce_sum(u_produce_v, axis=0, keep_dims=True)
                 b_IJ += u_produce_v
     return(v_J)
+
 def reduce_sum(input_tensor, axis=None, keepdims=False):
     return tf.reduce_sum(input_tensor, axis=axis, keepdims=keepdims)
+
 def softmax(logits, axis=None):
     return tf.nn.softmax(logits, dim=axis)
-OBSERVE = 1000. 
-EXPLORE = 5000. 
-FINAL_EPSILON = 0.05 
-INITIAL_EPSILON = 1.0 
-REPLAY_MEMORY = 100000
 def createNetwork():
     # input layer
     s= tf.placeholder("float", [None, 84, 84, 4])
@@ -109,7 +105,7 @@ def createNetwork():
     caps2 = routing(input_fc, coeff)
     vector_j = tf.reshape(caps2, shape=(-1, 160))
     fc1 = tf.contrib.layers.fully_connected(vector_j, num_outputs=30, activation_fn=tf.nn.relu)
-    q_eval = tf.contrib.layers.fully_connected(fc1, num_outputs=ACTIONS, activation_fn=None)
+    q_eval = tf.contrib.layers.fully_connected(fc1, num_outputs=actions, activation_fn=None)
     #output = tf.nn.softmax(logits = fc2)
     #argmax_idx = tf.to_int32(tf.argmax(output, axis=1))
     readout = q_eval
@@ -118,7 +114,7 @@ def createNetwork():
 def trainNetwork(s, coeff, readout, sess):
     tick = time.time()
     # define the cost function
-    a = tf.placeholder("float", [None, ACTIONS])
+    a = tf.placeholder("float", [None,actions])
     y = tf.placeholder("float", [None])
     readout_action = tf.reduce_sum(tf.multiply(readout, a), reduction_indices = 1)
     cost = tf.reduce_mean(tf.square(y - readout_action))
@@ -127,9 +123,10 @@ def trainNetwork(s, coeff, readout, sess):
     # open up a game state to communicate with emulator
     game_state = game.GameState()
     # store the previous observations in replay memory
+    replay_memory = 100000
     D = deque()
     # get the first state by doing nothing and preprocess the image to 80x80x4
-    do_nothing = np.zeros(ACTIONS)
+    do_nothing = np.zeros(actions)
     do_nothing[0] = 1
     x_t, r_0, terminal, bar1_score, bar2_score = game_state.frame_step(do_nothing)
     x_t = cv2.cvtColor(cv2.resize(x_t, (84, 84)), cv2.COLOR_BGR2GRAY)
@@ -140,20 +137,24 @@ def trainNetwork(s, coeff, readout, sess):
     #sess.run(tf.initialize_all_variables())
     sess.run(tf.global_variables_initializer())
     b_IJ1 = np.zeros((1, 1152, 10, 1, 1)).astype(np.float32) # batch_size=1
-    b_IJ2 = np.zeros((BATCH, 1152, 10, 1, 1)).astype(np.float32) # batch_size=BATCH
+    b_IJ2 = np.zeros((batch, 1152, 10, 1, 1)).astype(np.float32) # batch_size=BATCH
+    FINAL_EPSILON = 0.05 
+    INITIAL_EPSILON = 1.0 
     epsilon = INITIAL_EPSILON
     t = 0
     episode = 0
+    OBSERVE = 1000
+    EXPLORE = 5000
     while "pigs" != "fly":
         # choose an action epsilon greedily
         # readout_t = readout.eval(feed_dict = {s : [s_t].reshape((1,80,80,4))})[0]
         
         readout_t = readout.eval(feed_dict = {s:s_t.reshape((1,84,84,4)), coeff:b_IJ1})
         
-        a_t = np.zeros([ACTIONS])
+        a_t = np.zeros([actions])
         action_index = 0
         if random.random() <= epsilon or t <= OBSERVE:
-            action_index = random.randrange(ACTIONS)
+            action_index = random.randrange(actions)
             a_t[action_index] = 1
         else:
             action_index = np.argmax(readout_t)
@@ -162,7 +163,7 @@ def trainNetwork(s, coeff, readout, sess):
         # scale down epsilon
         if epsilon > FINAL_EPSILON and t > OBSERVE:
             epsilon -= (INITIAL_EPSILON - FINAL_EPSILON) / EXPLORE
-
+        K = 1 
         for i in range(0, K):
             # run the selected action and observe next state and reward
             x_t1_col, r_t, terminal, bar1_score, bar2_score = game_state.frame_step(a_t)
@@ -197,7 +198,7 @@ def trainNetwork(s, coeff, readout, sess):
                 if minibatch[i][4]:
                     y_batch.append(r_batch[i])
                 else:
-                    y_batch.append(r_batch[i] + GAMMA * np.max(readout_j1_batch[i]))
+                    y_batch.append(r_batch[i] + gamma * np.max(readout_j1_batch[i]))
 
             # perform gradient step
             train_step.run(feed_dict = {
