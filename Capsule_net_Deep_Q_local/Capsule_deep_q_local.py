@@ -1,33 +1,20 @@
 #!/usr/bin/env python
 # coding: utf-8
-
-# In[1]:
-
-
 import tensorflow as tf
 import cv2
 import sys
-sys.path.append("Wrapped Game Code/")
-import pong_fun as game # whichever is imported "as game" will be used
-import dummy_game
-#import tetris_fun as game
+import pong_fun as game 
 import random
 import time 
 import numpy as np
 from collections import deque
-
-
-# In[2]:
-
-
 epsilon = 1e-9
+ACTIONS = 6 
+K = 1 
 iter_routing = 3
 train_freq = 20
-
-
-# In[3]:
-
-
+BATCH = 32 
+GAMMA = 0.99 
 def squash(vector):
     vec_squared_norm = reduce_sum(tf.square(vector), -2, keepdims=True)
     scalar_factor = vec_squared_norm / (1 + vec_squared_norm) / tf.sqrt(vec_squared_norm + epsilon)
@@ -89,38 +76,15 @@ def routing(input, b_IJ):
                 # b_IJ += tf.reduce_sum(u_produce_v, axis=0, keep_dims=True)
                 b_IJ += u_produce_v
     return(v_J)
-# For version compatibility
 def reduce_sum(input_tensor, axis=None, keepdims=False):
-    try:
-        return tf.reduce_sum(input_tensor, axis=axis, keepdims=keepdims)
-    except:
-        return tf.reduce_sum(input_tensor, axis=axis, keep_dims=keepdims)
-# For version compatibility
+    return tf.reduce_sum(input_tensor, axis=axis, keepdims=keepdims)
 def softmax(logits, axis=None):
-    try:
-        return tf.nn.softmax(logits, axis=axis)
-    except:
-        return tf.nn.softmax(logits, dim=axis)
-
-
-# In[4]:
-
-
-GAME = 'pong' # the name of the game being played for log files
-ACTIONS = 6 # number of valid actions
-GAMMA = 0.99 # decay rate of past observations
-OBSERVE = 1000. # timesteps to observe before training
-EXPLORE = 5000. # frames over which to anneal epsilon
-FINAL_EPSILON = 0.05 # final value of epsilon
-INITIAL_EPSILON = 1.0 # starting value of epsilon
-REPLAY_MEMORY = 100000 # number of previous transitions to remember
-BATCH = 32 # size of minibatch
-K = 1 # only select an action every Kth frame, repeat prev for others
-
-
-# In[5]:
-
-
+    return tf.nn.softmax(logits, dim=axis)
+OBSERVE = 1000. 
+EXPLORE = 5000. 
+FINAL_EPSILON = 0.05 
+INITIAL_EPSILON = 1.0 
+REPLAY_MEMORY = 100000
 def createNetwork():
     # input layer
     s= tf.placeholder("float", [None, 84, 84, 4])
@@ -150,10 +114,6 @@ def createNetwork():
     #argmax_idx = tf.to_int32(tf.argmax(output, axis=1))
     readout = q_eval
     return s, coeff, readout
-
-
-# In[6]:
-
 
 def trainNetwork(s, coeff, readout, sess):
     tick = time.time()
@@ -253,16 +213,6 @@ def trainNetwork(s, coeff, readout, sess):
         # save progress every 10000 iterations
         if t % 10000 == 0:
             saver.save(sess, 'saved_networks/' + GAME + '-dqn', global_step = t)
-
-        # print info
-        state = ""
-        if t <= OBSERVE:
-            state = "observe"
-        elif t > OBSERVE and t <= OBSERVE + EXPLORE:
-            state = "explore"
-        else:
-            state = "train"
-        #print ("TIMESTEP", t, "/ STATE", state, "/ LINES", game_state.total_lines, "/ EPSILON", epsilon, "/ ACTION", action_index, "/ REWARD", r_t, "/ Q_MAX %e" % np.max(readout_t))
         if r_t!= 0:
             print ("TIMESTEP", t, "/ EPISODE", episode, "/ bar1_score", bar1_score, "/ bar2_score", bar2_score, "/ REWARD", r_t, "/ Q_MAX %e" % np.max(readout_t))
 
@@ -271,38 +221,12 @@ def trainNetwork(s, coeff, readout, sess):
             break;   
         if(bar1_score - bar2_score > 15):
             print("Game_Mid_in Time:",int(time.time() - tick))
-        # write info to files
-        '''
-        if t % 10000 <= 100:
-            a_file.write(",".join([str(x) for x in readout_t]) + '\n')
-            h_file.write(",".join([str(x) for x in h_fc1.eval(feed_dict={s:[s_t]})[0]]) + '\n')
-            cv2.imwrite("logs_tetris/frame" + str(t) + ".png", x_t1)
-        '''
-
-
-# In[7]:
-
-
-# tf.reset_default_graph()
-# sess = tf.InteractiveSession()
-# s_, coeff, readout = createNetwork()
-# print(s_)
-# trainNetwork(s_, coeff, readout, sess)
-
-
-# In[8]:
-
-
 def playGame():
     tf.reset_default_graph()
     sess = tf.InteractiveSession()
     s, coeff, readout = createNetwork()
     trainNetwork(s, coeff, readout, sess)
-
-
-# In[9]:
-
-
+    
 def main():
     playGame()
 
@@ -311,22 +235,3 @@ if __name__ == "__main__":
     main()
     print("Game_Ends_in Time:",int(time.time() - tick))
     print("____________ END HERE _____________")
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-
-
