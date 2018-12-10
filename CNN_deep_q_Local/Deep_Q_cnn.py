@@ -8,6 +8,7 @@ import random
 import time 
 import numpy as np
 from collections import deque
+from con_fun import *
 actions = 6
 gamma = 0.99
 replay_memory = 50000
