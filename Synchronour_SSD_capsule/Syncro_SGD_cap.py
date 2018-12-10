@@ -4,11 +4,9 @@ import sys
 import time 
 import random
 import numpy as np
-
 import tensorflow as tf
 from collections import deque
-
-import pong_fun as game # Pygame Environment
+import pong_fun as game 
 from capsule_fun import *  # function for capsule network
 
 #####################################################################################################
@@ -16,18 +14,7 @@ from capsule_fun import *  # function for capsule network
 epsilon = 1e-9
 iter_routing = 1
 train_freq = 20
-
-GAME = 'pong' # the name of the game being played for log files
-ACTIONS = 6 # number of valid actions
-GAMMA = 0.99 # decay rate of past observations
-OBSERVE = 1000. # timesteps to observe before training
-EXPLORE = 5000. # frames over which to anneal epsilon
-FINAL_EPSILON = 0.05 # final value of epsilon
-INITIAL_EPSILON = 1.0 # starting value of epsilon
-REPLAY_MEMORY = 25000 # number of previous transitions to remember
-BATCH = 32 # size of minibatch
-K = 1 # only select an action every Kth frame, repeat prev for others
-
+actions = 6 
 #####################################################################################################
 
 def main(_):
@@ -57,7 +44,7 @@ def main(_):
         s, coeff, readout = createNetwork()
         # trainNetwork(s, coeff, readout, sess)
         # define the cost function
-        a = tf.placeholder("float", [None, ACTIONS])
+        a = tf.placeholder("float", [None, actions])
         y = tf.placeholder("float", [None])
         readout_action = tf.reduce_sum(tf.multiply(readout, a), reduction_indices = 1)
         cost = tf.reduce_mean(tf.square(y - readout_action))
@@ -74,18 +61,23 @@ def main(_):
         D =  deque()
         
         # get the first state by doing nothing and preprocess the image to 80x80x4
-        do_nothing = np.zeros(ACTIONS)
+        do_nothing = np.zeros(actions)
         do_nothing[0] = 1
         x_t, r_0, terminal, bar1_score, bar2_score = game_state.frame_step(do_nothing)
         x_t = cv2.cvtColor(cv2.resize(x_t, (84, 84)), cv2.COLOR_BGR2GRAY)
         ret, x_t = cv2.threshold(x_t,1,255,cv2.THRESH_BINARY)
         s_t = np.stack((x_t, x_t, x_t, x_t), axis = 2)  
-        
+        FINAL_EPSILON = 0.05 
+        INITIAL_EPSILON = 1.0 
         epsilon = INITIAL_EPSILON
         b_IJ1 = np.zeros((1, 1152, 10, 1, 1)).astype(np.float32) # batch_size=1
         b_IJ2 = np.zeros((BATCH, 1152, 10, 1, 1)).astype(np.float32) # batch_size=BATCH
         t = 0
-        episode = 0;loss=0;
+        OBSERVE = 1000. 
+        EXPLORE = 5000.
+        BATCH = 32
+        episode = 0;
+        loss=0;
         tick = time.time()
     print('Step 1 complete')
     is_chief=(FLAGS.task_index == 0)
@@ -104,15 +96,17 @@ def main(_):
         while not mon_sess.should_stop():
             
             print('Step 2 Done')
+            replay_memory = 25000 
+            gamma = 0.99
             while True:
                 # choose an action epsilon greedily
                 readout_t = readout.eval(feed_dict = {s:s_t.reshape((1,84,84,4)), coeff:b_IJ1}, session=mon_sess)
                 #readout_t = readout.eval(feed_dict = {s : [s_t]}, session=mon_sess)[0]
-                a_t = np.zeros([ACTIONS])
+                a_t = np.zeros([actions])
                 action_index = 0
                 
                 if random.random() <= epsilon or t <= OBSERVE:
-                    action_index = random.randrange(ACTIONS)
+                    action_index = random.randrange(actions)
                     a_t[action_index] = 1
                 else:
                     action_index = np.argmax(readout_t)
@@ -120,7 +114,7 @@ def main(_):
                 # scale down epsilon
                 if epsilon > FINAL_EPSILON and t > OBSERVE:
                     epsilon -= (INITIAL_EPSILON - FINAL_EPSILON) / EXPLORE
-                
+                K = 1 
                 for i in range(0, K):
                     # run the selected action and observe next state and reward
                     x_t1_col, r_t, terminal, bar1_score, bar2_score = game_state.frame_step(a_t)
@@ -132,12 +126,12 @@ def main(_):
                     s_t1 = np.append(x_t1, s_t[:,:,0:3], axis = 2)
                     # store the transition in D
                     D.append((s_t, a_t, r_t, s_t1, terminal))
-                    if len(D) > REPLAY_MEMORY:
+                    if len(D) > replay_memory:
                         D.popleft()
 
                     # store the transition in D
                     D.append((s_t, a_t, r_t, s_t1, terminal))
-                    if len(D) > REPLAY_MEMORY:
+                    if len(D) > replay_memory:
                         D.popleft()
                 # only train if done observing
                 if t > OBSERVE and t%train_freq==0:
@@ -155,7 +149,7 @@ def main(_):
                         if minibatch[i][4]:
                             y_batch.append(r_batch[i])
                         else:
-                            y_batch.append(r_batch[i] + GAMMA * np.max(readout_j1_batch[i]))
+                            y_batch.append(r_batch[i] + gamma * np.max(readout_j1_batch[i]))
                     
                     # perform gradient step
                     _,loss = mon_sess.run([train_op,cost],feed_dict = {
