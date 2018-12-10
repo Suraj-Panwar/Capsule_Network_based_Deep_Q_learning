@@ -52,10 +52,8 @@ def main(_):
 
         # Build model...
 #####################################################################################################
-        #sess = tf.InteractiveSession()
         print('Checkpoint 1 reached:-Build model')
         s, coeff, readout = createNetwork()
-        # trainNetwork(s, coeff, readout, sess)
         # define the cost function
         a = tf.placeholder("float", [None, ACTIONS])
         y = tf.placeholder("float", [None])
