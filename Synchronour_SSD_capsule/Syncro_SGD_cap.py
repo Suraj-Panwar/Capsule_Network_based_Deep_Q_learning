@@ -39,7 +39,6 @@ def main(_):
 
         # Build model...
 #####################################################################################################
-        #sess = tf.InteractiveSession()
         print('Checkpoint 1 reached:-Build model')
         s, coeff, readout = createNetwork()
         # trainNetwork(s, coeff, readout, sess)
