@@ -67,11 +67,11 @@ def main(_):
         #var_list = tf.contrib.framework.list_variables(config.pre_model_dir)
         #for v in var_list:
             #print(v)
-	FINAL_EPSILON = 0.05 # final value of epsilon
-	INITIAL_EPSILON = 1.0 # starting value of epsilon
-	replay_memory = 25000 # number of previous transitions to remember
-	batch = 32 # size of minibatch
-	k = 1 # only select an action every Kth frame, repeat prev for others
+	FINAL_EPSILON = 0.05 
+	INITIAL_EPSILON = 1.0 
+	replay_memory = 25000 
+	batch = 32
+	k = 1
         epsilon = INITIAL_EPSILON
         t = 0
         dct = {}
@@ -102,7 +102,6 @@ def main(_):
             print("Variables initialized ...")
             print('Step 2 Done')
             while True:
-                # choose an action epsilon greedily
                 #print('Checkpoint 3 reached')
                 readout_t = readout.eval(feed_dict = {s : [s_t]}, session=mon_sess)[0]
                 a_t = np.zeros([actions])
@@ -119,7 +118,6 @@ def main(_):
                         epsilon -= (INITIAL_EPSILON - FINAL_EPSILON) / EXPLORE
 
                 for i in range(0, k):
-                        # run the selected action and observe next state and reward
                         x_t1_col, r_t, terminal, bar1_score, bar2_score  = game_state.frame_step(a_t)
                         if(terminal == 1):
                             episode +=1
@@ -128,16 +126,12 @@ def main(_):
                         x_t1 = np.reshape(x_t1, (80, 80, 1))
                         s_t1 = np.append(x_t1, s_t[:,:,0:3], axis = 2)
 
-                        # store the transition in D
                         D.append((s_t, a_t, r_t, s_t1, terminal))
                         if len(D) > replay_memory:
                             D.popleft()
-                # only train if done observing
                 if t > observe:
-                    # sample a minibatch to train on
                     minibatch = random.sample(D, batch)
 
-                    # get the batch variables
                     s_j_batch = [d[0] for d in minibatch]
                     a_batch = [d[1] for d in minibatch]
                     r_batch = [d[2] for d in minibatch]
@@ -146,7 +140,6 @@ def main(_):
                     y_batch = []
                     readout_j1_batch = readout.eval(feed_dict = {s : s_j1_batch}, session=mon_sess)
                     for i in range(0, len(minibatch)):
-                        # if terminal only equals reward
                         if minibatch[i][4]:
                             y_batch.append(r_batch[i])
                         else:
@@ -169,7 +162,6 @@ def main(_):
                         result.to_csv("/home/dolaram/Syn_CNN/output.csv")
     
                         
-                # update the old values
                 s_t = s_t1
                 t += 1
                     
