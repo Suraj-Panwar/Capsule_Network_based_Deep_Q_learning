@@ -12,24 +12,14 @@ import pong_fun as game # Pygame Environment
 from capsule_fun import *  # function for capsule network
 
 #####################################################################################################
-
 epsilon = 1e-9
+actions = 6
 iter_routing = 2
+gamma = 0.99
+replay_memory = 25000
 train_freq = 20
-
-GAME = 'pong'
-ACTIONS = 6
-GAMMA = 0.99
-OBSERVE = 1000.
-EXPLORE = 5000.
-FINAL_EPSILON = 0.05
-INITIAL_EPSILON = 1.0
-REPLAY_MEMORY = 25000
-BATCH = 32
-K = 1
-
+batch = 32
 #####################################################################################################
-
 def main(_):
   ps_hosts = FLAGS.ps_hosts.split(",")
   worker_hosts = FLAGS.worker_hosts.split(",")
@@ -49,42 +39,38 @@ def main(_):
     # Assigns ops to the local worker by default.
     with tf.device(tf.train.replica_device_setter(
         worker_device="/job:worker/task:%d" % FLAGS.task_index, cluster=cluster)):
-
-        # Build model...
-#####################################################################################################
         print('Checkpoint 1 reached:-Build model')
         s, coeff, readout = createNetwork()
         # define the cost function
-        a = tf.placeholder("float", [None, ACTIONS])
+        a = tf.placeholder("float", [None, actions])
         y = tf.placeholder("float", [None])
         readout_action = tf.reduce_sum(tf.multiply(readout, a), reduction_indices = 1)
         cost = tf.reduce_mean(tf.square(y - readout_action))
-        #train_step = tf.train.AdamOptimizer(1e-6).minimize(cost)
         global_step = tf.contrib.framework.get_or_create_global_step()
         train_op = tf.train.AdagradOptimizer(0.01).minimize(cost, global_step=global_step)
         game_state = game.GameState()
         D =  deque()
-        
-        do_nothing = np.zeros(ACTIONS)
+        do_nothing = np.zeros(actions)
         do_nothing[0] = 1
         x_t, r_0, terminal, bar1_score, bar2_score = game_state.frame_step(do_nothing)
         x_t = cv2.cvtColor(cv2.resize(x_t, (84, 84)), cv2.COLOR_BGR2GRAY)
         ret, x_t = cv2.threshold(x_t,1,255,cv2.THRESH_BINARY)
         s_t = np.stack((x_t, x_t, x_t, x_t), axis = 2)  
-        
+        FINAL_EPSILON = 0.05
+        INITIAL_EPSILON = 1.0
         epsilon = INITIAL_EPSILON
         b_IJ1 = np.zeros((1, 1152, 10, 1, 1)).astype(np.float32) # batch_size=1
-        b_IJ2 = np.zeros((BATCH, 1152, 10, 1, 1)).astype(np.float32) # batch_size=BATCH
+        b_IJ2 = np.zeros((batch, 1152, 10, 1, 1)).astype(np.float32) # batch_size=BATCH
         t = 0
         episode = 0
+        K = 1
+        observe = 1000.
+        explore = 5000.
         tick = time.time()
         print('Step 1 complete')
     # The StopAtStepHook handles stopping after running given steps.
     hooks=[tf.train.StopAtStepHook(last_step=1000000)]
 
-    # The MonitoredTrainingSession takes care of session initialization,
-    # restoring from a checkpoint, saving to a checkpoint, and closing when done
-    # or an error occurs.
     
     with tf.train.MonitoredTrainingSession(master=server.target,
                                            is_chief=(FLAGS.task_index == 0),
@@ -99,18 +85,18 @@ def main(_):
             while True:
                 readout_t = readout.eval(feed_dict = {s:s_t.reshape((1,84,84,4)), coeff:b_IJ1}, session=mon_sess)
                 #readout_t = readout.eval(feed_dict = {s : [s_t]}, session=mon_sess)[0]
-                a_t = np.zeros([ACTIONS])
+                a_t = np.zeros([actions])
                 action_index = 0
                 
-                if random.random() <= epsilon or t <= OBSERVE:
-                    action_index = random.randrange(ACTIONS)
+                if random.random() <= epsilon or t <= observe:
+                    action_index = random.randrange(actions)
                     a_t[action_index] = 1
                 else:
                     action_index = np.argmax(readout_t)
                     a_t[action_index] = 1
                 # scale down epsilon
-                if epsilon > FINAL_EPSILON and t > OBSERVE:
-                    epsilon -= (INITIAL_EPSILON - FINAL_EPSILON) / EXPLORE
+                if epsilon > FINAL_EPSILON and t > observe:
+                    epsilon -= (INITIAL_EPSILON - FINAL_EPSILON) / explore
                 
                 for i in range(0, K):
                     x_t1_col, r_t, terminal, bar1_score, bar2_score = game_state.frame_step(a_t)
@@ -122,14 +108,14 @@ def main(_):
                     s_t1 = np.append(x_t1, s_t[:,:,0:3], axis = 2)
                     # store the transition in D
                     D.append((s_t, a_t, r_t, s_t1, terminal))
-                    if len(D) > REPLAY_MEMORY:
+                    if len(D) > replay_memory:
                         D.popleft()
 
                     D.append((s_t, a_t, r_t, s_t1, terminal))
-                    if len(D) > REPLAY_MEMORY:
+                    if len(D) > replay_memory:
                         D.popleft()
-                if t > OBSERVE and t%train_freq==0:
-                    minibatch = random.sample(D, BATCH)
+                if t > observe and t%train_freq==0:
+                    minibatch = random.sample(D, batch)
                     # get the batch variables
                     s_j_batch = [d[0] for d in minibatch]
                     a_batch = [d[1] for d in minibatch]
@@ -141,7 +127,7 @@ def main(_):
                         if minibatch[i][4]:
                             y_batch.append(r_batch[i])
                         else:
-                            y_batch.append(r_batch[i] + GAMMA * np.max(readout_j1_batch[i]))
+                            y_batch.append(r_batch[i] + gamma * np.max(readout_j1_batch[i]))
                     
                     train_op.run(feed_dict = {
                         y : y_batch,
@@ -160,14 +146,6 @@ def main(_):
                 if( (bar1_score - bar2_score) > 11):
                     print("Game_Between_in Time:",int(time.time() - tick))
                     
-
-        # Run a training step asynchronously.
-        # See <a href="./../api_docs/python/tf/train/SyncReplicasOptimizer"><code>tf.train.SyncReplicasOptimizer</code></a> for additional details on how to
-        # perform *synchronous* training.
-        # mon_sess.run handles AbortedError in case of preempted PS.
-
-
-
 if __name__ == "__main__":
   parser = argparse.ArgumentParser()
   parser.register("type", "bool", lambda v: v.lower() == "true")
